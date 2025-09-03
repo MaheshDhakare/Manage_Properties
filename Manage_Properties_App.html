@@ -1,0 +1,1440 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Land_Property_Manager</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <style>
+    /* Reset + base */
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#f5f7fb;--card:#ffffff;--muted:#7b8794;--accent:#3C52D3;--danger:#ef4444; --glass: rgba(255,255,255,0.6);
+      --shadow: 0 6px 19px rgba(33,47,60,0.08);
+      --radius:12px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    html,body{height:100%;background:linear-gradient(190deg,var(--bg),#eef3fb);color:#10203a}
+
+    /* Layout */
+    .app{display:grid;grid-template-columns:260px 1fr;gap:24px;max-width:1200px;margin:0px auto;padding:5px}
+    @media (max-width:880px){.app{grid-template-columns:1fr;padding:12px}}
+
+    /* Sidebar */
+    .sidebar{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:19px;height:calc(100vh - 96px);position:sticky;top:24px}
+    .brand{display:flex;gap:12px;align-items:center;margin-bottom:19px}
+    .logo{width:46px;height:46px;border-radius:10px;background:linear-gradient(165deg,var(--accent),#60a5fa);display:grid;place-items:center;color:white;font-weight:700}
+    .brand h1{font-size:19px}
+    .muted{color:var(--muted);font-size:16px}
+
+    .nav{margin-top:19px}
+    .nav a{display:block;padding:10px;border-radius:8px;color:#0f1724;text-decoration:none;font-weight:600;margin-bottom:6px}
+    .nav a.active{background:linear-gradient(90deg, rgba(37,99,235,0.09), rgba(37,99,235,0.06));color:var(--accent)}
+
+    .filter-group{margin-top:10px}
+    .filter-group label{display:block;font-size:16px;color:var(--muted);margin-bottom:5px}
+    .field {
+	  display: block;
+	  width: 100%;             /* fill parent width */
+	  max-width: 100%;         /* prevent shrinking */
+	  box-sizing: border-box;  /* padding included in width */
+	  padding: 10px 12px;      /* more breathing room */
+	  border: 1px solid #e6edf6;
+	  border-radius: 8px;
+	  background: #fff;        /* solid background for readability */
+	}
+
+    /* Main area */
+    .main{min-height:80vh}
+    .topbar{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:19px}
+    .search{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .search input{padding:10px 12px;border-radius:10px;border:1px solid #e6edf6;min-width:220px}
+    .actions{display:flex;gap:8px}
+    .btn{font-size:15px;padding:10px 10px;border-radius:10px;border:none;background:var(--accent);color:white;font-weight:500;cursor:pointer}
+    .btn.secondary{font-size:15px;background:transparent;border:1px solid #dbeafe;color:var(--accent)}
+
+    /* Stats */
+    .stats{font-style: normal;display:flex;gap:12px;margin-bottom:10px;margin-top:30px;flex-wrap:wrap}
+    .stat{text-align: center;flex:1;background:linear-gradient(190deg,var(--card),var(--glass));padding:0px;border-radius:12px;box-shadow:var(--shadow);min-width:190px}
+    .stat h3{font-size:17px}
+    .stat p{color:var(--muted);margin-top:0px}
+
+    /* Property Grid */
+    .grid {
+	  display: grid;
+	  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	  gap: 15px;
+	}
+
+    @media (max-width:1100px){.grid{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:640px){.grid{grid-template-columns:1fr}}
+
+    .card{background:var(--card);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;border:1px solid rgba(17,23,42,0.03)}
+    .media{height:190px;background:linear-gradient(165deg,#dbeafe,#bfdbfe);display:flex;align-items:end;padding:12px;color:#0f1724;font-weight:700}
+    .card-body{padding:12px}
+    .meta{padding:5px 2px;display:flex;justify-content:space-between;align-items:center}
+	.title {
+	  font-size: 21px;
+	  font-weight: 500;
+	  white-space: normal;       /* allow wrapping */
+	  overflow-wrap: anywhere;   /* break long words if needed */
+	  word-break: break-word;    /* legacy support */
+	}
+
+
+    .sub{color:var(--muted);font-size:19px;margin-bottom:5px}
+    .props{display:flex;gap:0px;margin-top:5px;color:var(--muted);font-size:19px;flex-wrap:wrap}
+    .chip{background:#f1f8ff;padding:3px -17px 4px 2px;border-radius:999px;border:1px solid #e6f0ff}
+	.ptype{font-size:19px;background:#D8ADFF;padding:2px 5px;border-radius:8px;font-weight:500;border:1px solid #e6f0ff}
+
+    .card {
+	  font-style: normal;
+	  background: var(--card);
+	  border-radius: 12px;
+	  box-shadow: var(--shadow);
+	  overflow: hidden;
+	  border: 1px solid rgba(17,23,42,0.03);
+
+	  display: flex;
+	  flex-direction: column;
+	}
+
+	.card-body {
+	font-style: normal;
+	  padding: 12px;
+	  flex: 1; /* fills available vertical space */
+	}
+
+	.card-footer {
+	  display: flex;
+	  justify-content: space-between;
+	  align-items: center;
+	  gap: 8px;
+	  padding: 12px;
+	  border-top: 1px solid #f1f6fb;
+	  margin-top: auto; /* push to bottom */
+	}
+
+    .small{font-size:16px;color:var(--muted)}
+    .pill{padding:2px 5px;border-radius:8px;font-weight:600}
+    .pill.available{font-size:17px; background:#a7f6d1;color:#065f46}
+    .pill.lost{font-size:17px; background:#ffd6d6;color:var(--danger)}
+	.pill.won{font-size:17px; background:#FFD700;color:#065f46}
+	.pill.property{font-size:17px; background:#C4C975;color:#065f46}
+	.pill.requirement{font-size:17px; background:#C986DB;color:#065f46}
+
+
+
+    /* Empty state */
+    .empty{padding:40px;text-align:center;color:var(--muted)}
+
+    /* Modal */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,0.5);display:none;place-items:center;padding:10px;z-index:60}
+    .modal{background:var(--card);border-radius:12px;max-width:900px;width:100%;box-shadow:var(--shadow);overflow:auto;max-height:90vh}
+    .modal .content{padding:10px}
+    .modal .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .thumbs{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+    .thumb{width:80px;height:60px;border-radius:8px;overflow:hidden;flex-shrink:0;position:relative}
+    .thumb img{width:100%;height:100%;object-fit:cover}
+    .thumb .remove{position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.6);color:white;border-radius:50%;width:20px;height:20px;display:grid;place-items:center;font-size:12px;cursor:pointer}
+    .main-img{width:100%;height:320px;object-fit:cover;border-radius:8px;background:#f3f6fb}
+
+    /* printable area helpers */
+    .printable{padding:19px;background:#fff;color:#10203a}
+    .printable .row{display:flex;gap:12px;margin-bottom:8px}
+    .page-break{page-break-after:always}
+
+    /* Utilities */
+    .flex{display:flex;gap:8px;align-items:center}
+ 
+    a.link{color:var(--accent);text-decoration:none;font-weight:700}
+    footer{max-width:1200px;margin:19px auto;text-align:center;color:var(--muted);font-size:16px}
+	
+
+
+	/* Sidebar default */
+	.sidebar {
+	  background: var(--card);
+	  border-radius: var(--radius);
+	  box-shadow: var(--shadow);
+	  padding: 19px;
+	  height: calc(100vh - 30px);
+	  position: sticky;
+	  top: 24px;
+	  transition: transform 0.3s ease; /* slide effect */
+	}
+
+	/* Hidden state */
+	.sidebar.hidden {
+	  transform: translateX(-100%);
+	}
+
+
+	/* On smaller screens: sidebar becomes overlay */
+	@media (max-width: 880px) {
+	  .sidebar {
+		position: fixed;
+		top: 0;
+		left: 0;
+		height: 100vh;
+		z-index: 200;
+		transform: translateX(-100%); /* hidden by default */
+	  }
+	  .sidebar.show {
+		transform: translateX(0); /* visible */
+	  }
+	}
+
+
+
+	.modal-backdrop { z-index: 9999; }
+
+	.right {
+	  width: 100%;              /* take full row width */
+	  display: flex;
+	  flex-direction: column;   /* stack label above input */
+	  align-items: stretch;     /* let input stretch full width */
+	}
+
+
+
+
+	.topbar {
+	  flex-wrap: wrap;
+	}
+	.search input {
+	  flex: 1;
+	  min-width: 190px;
+	}
+	.actions {
+	  flex-wrap: wrap;
+	}
+
+	@media (max-width: 640px) {
+	  .modal {
+		width: 100%;
+		max-width: 95%;
+		max-height: 90vh;
+	  }
+	  .main-img {
+		height: 220px;
+	  }
+	}
+		
+
+	/* Hide toggle button on desktop/laptop */
+	.toggle-btn {
+	  display: none;
+	}
+
+	@media (max-width: 880px) {
+	  .toggle-btn {
+		display: inline-flex; /* show on mobile/tablet */
+		align-items: center;
+		justify-content: center;
+	  }
+	}
+
+	.sidebar .btn.secondary {
+	  display: none; /* hide by default */
+	}
+
+	@media (max-width: 880px) {
+	  .sidebar .btn.secondary {
+		display: block;              /* show only on mobile/tablet */
+		background-color: #CFE5E5;   /* light red background */
+		color: #10203a;              /* dark red text for contrast */
+		border: 1px solid #CFE5E5;   /* soft red border */
+		  font-weight: 700;  /* slightly bold */
+	  }
+
+	}
+
+	.greeting {
+	  font-size: 17px;   /* increase size */
+	  font-weight: 500;  /* slightly bold */
+	  color: #0f1724;    /* darker color if you want */
+	  padding: 0 10px;   /* top-bottom = 0, left-right = 12px */
+	}
+
+	.topbar {
+	  position: sticky;
+	  top: 25px;              /* 👈 moves sticky bar a little down */
+	  z-index: 1000;
+	  background: #ffffff;    /* solid background so it doesn’t overlap content */
+	  padding: 5px 16px;
+	  box-shadow: 0 2px 6px rgba(0,0,0,0.08); /* subtle shadow */
+	}
+
+	.topbar {
+	  transition: opacity 0.3s ease, transform 0.3s ease;
+	}
+
+	.topbar.hide-on-mobile {
+	  opacity: 0;
+	  transform: translateY(-20px);
+	  pointer-events: none;
+	  height: 0;
+	  overflow: hidden;
+	}
+
+
+
+</style>
+</head>
+<body>
+  <div class="app">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+
+    <div class="brand">	
+	<div class="logo">
+		<img id="agentPhoto" alt="Logo" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">
+	</div>
+	<div>
+	  <h1 id="agentName"></h1>
+	  <div class="muted" id="agentRole"></div>
+	</div>
+      </div>
+
+      <nav class="nav">
+		<div class="filter-group">
+			<button class="btn" style="width:100%;margin-top:8px" onclick="openProfileModal()">
+			  <i class="fa-solid fa-user"></i> Profile
+			</button>
+			<button class="btn danger" style="width:100%;margin-top:20px;margin-bottom:20px"  onclick="openNewModal()">New Property</button>
+			<button class="btn" style="width:100%;margin-top:0px" onclick="exportBackup()">
+				  <i class="fa-solid fa-box-archive"></i> Export Backup
+			</button>
+			<input type="file" id="importBackupInput" style="display:none" accept=".json" onchange="importBackup(event)" />
+			<button class="btn danger" style="width:100%;margin-top:8px" onclick="document.getElementById('importBackupInput').click()">
+				  <i class="fa-solid fa-file-import"></i> Import Backup
+			</button>
+		</div>
+		<!-- <button class="btn danger" style="width:100%;margin-top:8px" onclick="clearAllData()">🗑 Clear All Data</button> -->
+      </nav>
+
+	<div class="filter-group">
+	  <label>Filter by Type</label>
+	  <select class="field" id="typeFilter" onchange="applyFilters()">
+		<option value="Property">Property</option>
+		<option value="Requirement">Requirement</option>
+	  </select>
+	</div>
+
+      <div class="filter-group">
+        <label>Filter by status</label>
+        <select class="field" id="statusFilter" onchange="applyFilters()">
+          <option value="Available">Available</option>
+          <option value="Lost">Lost</option>
+		  <option value="Won">Won</option>
+        </select>
+      </div>
+
+
+  <button class="btn secondary" style="width:100%;margin-top:25px" onclick="toggleSidebar()">
+    <i </i> Close
+  </button>	
+      <!-- <div style="margin-top:14px"> -->
+        <!-- <button class="btn" style="width:100%" onclick="applyFilters()">Apply</button> -->
+      <!-- </div> -->
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+      <div class="topbar">
+		<button class="btn secondary toggle-btn" onclick="toggleSidebar()">
+		  <i class="fa-solid fa-bars"></i>
+	</button>
+	
+		<div class="left">
+	  <div class="muted greeting" id="greeting"></div>
+	</div>
+      <div class="right">	  
+		<input class="field" placeholder="Search by address, id, landmark..." id="searchInput" onkeyup="applyFilters()"/>
+      </div>
+
+
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <h3 id="totalCount">0</h3>
+          <p class="sub">Total properties</p>
+        </div>
+        <div class="stat">
+          <h3 id="activeCount">0</h3>
+          <p class="sub">Available</p>
+        </div>
+		<div class="stat">
+		  <h3 id="lostCount">0</h3>
+		  <p class="sub">Lost</p>
+		</div>
+		<div class="stat">
+		  <h3 id="wonCount">0</h3>
+		  <p class="sub">Won</p>
+		</div>
+		
+<!--         <div class="stat">
+          <h3 id="valueCount">₹ 0</h3>
+          <p class="sub">Total portfolio value (est.)</p>
+        </div> -->
+      </div>
+
+      <!-- GRID OF PROPERTIES -->
+      <section class="grid" aria-label="property-list" id="propertyGrid"></section>
+
+
+    </main>
+
+  </div>
+
+  <!-- VIEW MODAL -->
+  <div id="viewBackdrop" class="modal-backdrop" onclick="closeViewModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="content">
+        <div class="header">
+          <h2 id="viewTitle">Property</h2>
+          <div>
+            <button class="btn" onclick="closeViewModal()">Close</button>
+          </div>
+        </div>
+        <img id="viewMainImage" class="main-img" src="" alt="property image" />
+        <div class="thumbs" id="viewThumbs"></div>
+        <div style="margin-top:12px">
+          <div class="row"><strong>ID:</strong> <span id="viewId" style="margin-left:8px"></span></div>
+		  <div class="row"><strong>Type:</strong> <span id="viewType" style="margin-left:8px"></span></div>
+          <div class="row"><strong>Address:</strong> <span id="viewAddress" style="margin-left:8px"></span></div>
+          <div class="row"><strong>Details:</strong> <span id="viewDetails" style="margin-left:8px"></span></div>
+		  <div class="row"><strong>Location:</strong> <span id="viewlocation" style="margin-left:8px"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT/NEW MODAL -->
+  <div id="editBackdrop" class="modal-backdrop" onclick="closeEditModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="content">
+        <div class="header">
+          <h2 id="editTitle">Edit Property</h2>
+          <div><button class="btn" onclick="saveProperty()">Save</button> <button class="btn secondary" onclick="closeEditModal()">Cancel</button></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label class="muted">ID</label>
+            <input id="fId" class="field" />
+          </div>
+		  <div>
+			  <label class="muted">Type</label>
+			  <select id="fType" class="field">
+				<option>Property</option>
+				<option>Requirement</option>
+			  </select>
+		</div>		  
+		  
+          <div>
+            <label class="muted">Address</label>
+            <input id="fAddress" class="field" />
+          </div>
+          <div>
+            <label class="muted">Location</label>
+            <input id="fLocation" class="field" />
+          </div>		  
+          <div style="grid-column:1/3">
+            <label class="muted">Title</label>
+            <input id="fTitle" class="field" />
+          </div>
+		  <div style="grid-column:1/3">
+			  <label class="muted">Details</label>
+			  <textarea id="fDetails" class="field" maxlength="2000" rows="10" style="resize:vertical"></textarea>
+		  </div>
+          <div>
+
+          <div>
+            <label class="muted">Status</label>
+            <select id="fStatus" class="field"><option>Available</option><option>Lost</option><option>Won</option></select>
+          </div>
+		  
+
+          <!-- REPLACED IMAGE INPUT: file uploader + preview -->
+          <div style="grid-column:1/3">
+            <label class="muted">Upload Images</label>
+            <input id="fImageFiles" type="file" class="field" accept="image/*" multiple />
+            <div id="imagePreview" class="thumbs" aria-hidden="false" style="margin-top:8px"></div>
+
+            <!-- keep legacy field as optional fallback (hidden visually, but available) -->
+            <input id="fImages" class="field" placeholder="(optional) paste comma separated data-URIs" style="margin-top:8px;display:none" />
+          </div>
+			<div style="grid-column:1/3">
+		  <label class="muted">Upload Files (PDF, Word, Excel, PPT, MP3, MP4)</label>
+		  <input id="fFileAttachments" type="file" class="field"
+				 accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.mp3,.mp4" multiple />
+		  <div id="filePreview" class="thumbs" style="margin-top:8px"></div>
+		</div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+  <!-- PROFILE MODAL -->
+  <div id="profileBackdrop" class="modal-backdrop" onclick="closeProfileModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="content">
+        <div class="header">
+          <h2>Profile</h2>
+          <div>
+            <button class="btn" onclick="saveProfileFromModal()">Save</button>
+            <button class="btn secondary" onclick="closeProfileModal()">Cancel</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="grid-column:1/3">
+            <label class="muted">Name</label>
+            <input id="profileName" class="field" />
+          </div>
+          <div style="grid-column:1/3">
+            <label class="muted">Role</label>
+            <input id="profileRole" class="field" />
+          </div>
+          <div>
+            <label class="muted">RERA No</label>
+            <input id="profileRera" class="field" />
+          </div>
+          <div>
+            <label class="muted">Contact</label>
+            <input id="profileContact" class="field" />
+          </div>
+          <div style="grid-column:1/3">
+            <label class="muted">Greeting Name</label>
+            <input id="profileGreeting" class="field" />
+          </div>
+			<div style="grid-column:1/3">
+			  <label class="muted">Photo</label>
+			  <input id="profilePhoto" type="file" accept="image/*" class="field" onchange="previewProfilePhoto(event)" />
+			  <div id="profilePhotoPreview" style="margin-top:8px">
+				<img id="profilePhotoImg" src="" alt="Preview" style="max-width:120px;border-radius:8px;display:none;">
+			  </div>
+			</div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- <footer>Prototype UI — LandAgent · Frontend only (HTML, CSS, JS). Next: connect to backend/WordPress.</footer> -->
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+
+  <script>
+  
+  // === Agent Profile (single source of truth) ===
+	const agentProfile = {
+	  name: "Neha Dhakare",
+	  role: "Property Consultant",
+	  contact: "+91-9370503500",
+	  reraNo: "A52100045587",
+	  greetingName: "Neha",
+	  photo: "images/Phone_Neha_Dhakare.jpg"
+	};
+
+// Initialize sidebar with agent info
+document.getElementById("agentPhoto").src = agentProfile.photo;
+document.getElementById("agentName").innerText = agentProfile.name;
+document.getElementById("agentRole").innerText = agentProfile.role;
+
+  
+    // utility: create a small SVG data URL (so PDF export won't fail due to CORS)
+    function makeSVGDataUrl(text, color) {
+      const svg = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns='http://www.w3.org/2000/svg' width='1900' height='900'><rect width='100%' height='100%' fill='${color}'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='64' fill='#ffffff' font-family='Arial' font-weight='700'>${text}</text></svg>`;
+      return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    }
+
+
+    // Sample properties with SVG images (safe for PDF export)
+    let properties = [];
+
+// Open or create IndexedDB
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('LandAgentDB', 2); // bump version to 2
+
+    request.onupgradeneeded = e => {
+      const db = e.target.result;
+
+      // properties store
+      if (!db.objectStoreNames.contains('properties')) {
+        db.createObjectStore('properties', { keyPath: 'id' });
+      }
+
+      // ✅ new profile store
+      if (!db.objectStoreNames.contains('profile')) {
+        db.createObjectStore('profile', { keyPath: 'id' });
+      }
+    };
+
+    request.onsuccess = e => resolve(e.target.result);
+    request.onerror = e => reject(e.target.error);
+  });
+}
+
+function updateUIWithProfile(profile) {
+  if (!profile) return;
+  agentProfile.name = profile.name || agentProfile.name;
+  agentProfile.role = profile.role || agentProfile.role;
+  agentProfile.contact = profile.contact || agentProfile.contact;
+  agentProfile.reraNo = profile.reraNo || agentProfile.reraNo;
+  agentProfile.greetingName = profile.greetingName || agentProfile.greetingName;
+  agentProfile.photo = profile.photo || agentProfile.photo;
+
+  // Apply to UI
+  document.getElementById("agentPhoto").src = agentProfile.photo;
+  document.getElementById("agentName").innerText = agentProfile.name;
+  document.getElementById("agentRole").innerText = agentProfile.role;
+  updateGreeting();
+}
+
+function previewProfilePhoto(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    agentProfile.photo = e.target.result; // save base64 string
+    document.getElementById("profilePhotoImg").src = agentProfile.photo;
+    document.getElementById("profilePhotoImg").style.display = "block";
+  };
+  reader.readAsDataURL(file);
+}
+
+
+async function saveProfile(profile) {
+  const db = await openDB();
+  const tx = db.transaction('profile', 'readwrite');
+  tx.objectStore('profile').put({ ...profile, id: 'agent' });
+  return new Promise(res => (tx.oncomplete = res));
+}
+
+async function loadProfile() {
+  const db = await openDB();
+  const tx = db.transaction('profile', 'readonly');
+  const req = tx.objectStore('profile').get('agent');
+  return new Promise((resolve) => {
+    req.onsuccess = e => resolve(e.target.result || null);
+    req.onerror = () => resolve(null);
+  });
+}
+
+function openProfileModal() {
+  closeAllModals();
+
+  // Fill fields...
+  document.getElementById('profileName').value = agentProfile.name;
+  document.getElementById('profileRole').value = agentProfile.role;
+  document.getElementById('profileContact').value = agentProfile.contact;
+  document.getElementById('profileRera').value = agentProfile.reraNo;
+  document.getElementById('profileGreeting').value = agentProfile.greetingName;
+
+  if (agentProfile.photo) {
+    document.getElementById("profilePhotoImg").src = agentProfile.photo;
+    document.getElementById("profilePhotoImg").style.display = "block";
+  } else {
+    document.getElementById("profilePhotoImg").style.display = "none";
+  }
+
+  document.getElementById('profileBackdrop').style.display = 'grid';
+}
+
+
+
+function closeAllModals() {
+  document.getElementById('editBackdrop').style.display = 'none';
+  document.getElementById('viewBackdrop').style.display = 'none';
+  document.getElementById('profileBackdrop').style.display = 'none';
+}
+
+
+function closeProfileModal(e) {
+  if (!e) {
+    document.getElementById('profileBackdrop').style.display = 'none';
+  } else if (e.target === document.getElementById('profileBackdrop')) {
+    // ✅ only close if actual backdrop clicked, not children
+    document.getElementById('profileBackdrop').style.display = 'none';
+  }
+}
+
+
+
+async function saveProfileFromModal() {
+  const profile = {
+    name: document.getElementById('profileName').value.trim(),
+    role: document.getElementById('profileRole').value.trim(),
+    contact: document.getElementById('profileContact').value.trim(),
+    reraNo: document.getElementById('profileRera').value.trim(),
+    greetingName: document.getElementById('profileGreeting').value.trim(),
+    photo: agentProfile.photo // ✅ use current photo (base64 or default)
+  };
+
+  await saveProfile(profile);
+  updateUIWithProfile(profile);
+  closeProfileModal();
+}
+
+
+// Save all properties (overwrite)
+async function savePropertiesToStorage() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('properties', 'readwrite');
+    const store = tx.objectStore('properties');
+    store.clear();
+    properties.forEach(p => store.put(p));
+    tx.oncomplete = () => resolve();
+    tx.onerror = e => reject(e.target.error);
+  });
+}
+
+
+// Load all properties
+async function loadPropertiesFromStorage() {
+  const db = await openDB();
+  const tx = db.transaction('properties', 'readonly');
+  const store = tx.objectStore('properties');
+  const request = store.getAll();
+
+  return new Promise((resolve, reject) => {
+    request.onsuccess = e => {
+      const result = e.target.result;
+      if (Array.isArray(result) && result.length) {
+        properties = result;
+      }
+      resolve();
+    };
+    request.onerror = e => reject(e.target.error);
+  });
+}
+
+async function clearAllData() {
+  if (!confirm("This will delete all properties. Continue?")) return;
+  const db = await openDB();
+  const tx = db.transaction("properties", "readwrite");
+  tx.objectStore("properties").clear();
+  tx.oncomplete = () => {
+    properties = [];
+    render();
+    alert("All data cleared!");
+  };
+}
+
+function updateGreeting() {
+  const greetingEl = document.getElementById("greeting");
+  const hours = new Date().getHours();
+  let greeting = "Hello";
+
+  if (hours < 12) {
+    greeting = "Good Morning";
+  } else if (hours < 19) {
+    greeting = "Good Afternoon";
+  } else {
+    greeting = "Good Evening";
+  }
+
+	greetingEl.innerHTML = `${greeting}, <strong>${agentProfile.greetingName}</strong>`;
+
+}
+
+updateGreeting();
+
+
+
+// Export Backup from IndexedDB
+async function exportBackup() {
+  await loadPropertiesFromStorage(); // refresh from DB
+  const data = JSON.stringify(properties, null, 2);
+  const blob = new Blob([data], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "landagent_backup.json";
+  a.click();
+
+  URL.revokeObjectURL(url);
+  alert("Backup exported successfully!");
+}
+
+// Import Backup into IndexedDB
+async function importBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (Array.isArray(imported)) {
+        const db = await openDB();
+        const tx = db.transaction("properties", "readwrite");
+        const store = tx.objectStore("properties");
+        store.clear(); // wipe old data
+        imported.forEach(p => store.put(p));
+
+        tx.oncomplete = async () => {
+          properties = imported;
+          render();
+          alert("Backup imported successfully!");
+        };
+      } else {
+        alert("Invalid backup format.");
+      }
+    } catch (err) {
+      console.error("Import failed:", err);
+      alert("Error importing backup.");
+    }
+  };
+  reader.readAsText(file);
+}
+
+
+    let currentViewIndex = null; // index of property being viewed
+    let editingIndex = null; // index being edited; null for new
+
+    // Uploaded images for current edit (in-memory base64 strings)
+    let uploadedImages = []; // reset when opening modal
+
+let uploadedFiles = []; // store {name, type, dataUrl}
+const fileAttachmentInput = document.getElementById('fFileAttachments');
+const filePreviewContainer = document.getElementById('filePreview');
+
+
+    // DOM refs
+    const fileInput = document.getElementById('fImageFiles');
+    const previewContainer = document.getElementById('imagePreview');
+
+    // When files selected: read as base64 and preview
+	fileInput.addEventListener('change', function (e) {
+	  const files = Array.from(e.target.files || []);
+	  if (!files.length) return;
+
+	  files.forEach(file => {
+		if (!file.type.startsWith('image/')) return;
+
+		const reader = new FileReader();
+		reader.onload = function(ev) {
+		  const dataUrl = ev.target.result;
+
+		  // only add if not already present (avoid duplicates)
+		  if (!uploadedImages.includes(dataUrl)) {
+			uploadedImages.push(dataUrl);
+
+			const d = document.createElement('div');
+			d.className = 'thumb';
+			d.innerHTML = `
+			  <img src="${dataUrl}" alt="preview" />
+			  <div class="remove" title="Remove" onclick="removePreview(this)">&times;</div>
+			`;
+			previewContainer.appendChild(d);
+		  }
+		};
+		reader.readAsDataURL(file);
+	  });
+
+	  // allow selecting the same file again
+	  fileInput.value = '';
+	});
+
+fileAttachmentInput.addEventListener('change', e => {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const dataUrl = ev.target.result;
+      uploadedFiles.push({ name: file.name, type: file.type, dataUrl });
+      const d = document.createElement('div');
+      d.className = 'thumb';
+      d.style.width = 'auto';
+      d.style.height = 'auto';
+      d.style.padding = '6px 10px';
+      d.style.background = '#eef2ff';
+      d.style.borderRadius = '6px';
+      d.style.display = 'flex';
+      d.style.alignItems = 'center';
+      d.style.gap = '6px';
+      d.innerHTML = `
+        <i class="fa-solid fa-file"></i>
+        <span style="font-size:12px">${file.name}</span>
+        <div class="remove" onclick="removeFilePreview(this)">&times;</div>`;
+      filePreviewContainer.appendChild(d);
+    };
+    reader.readAsDataURL(file);
+  });
+  fileAttachmentInput.value = '';
+});
+
+
+window.removeFilePreview = function(el) {
+  const parent = el.closest('.thumb');
+  const name = parent.querySelector('span').innerText;
+  uploadedFiles = uploadedFiles.filter(f => f.name !== name);
+  parent.remove();
+  fileAttachmentInput.value = '';
+};
+
+
+
+    // allow removing uploaded preview before saving
+    window.removePreview = function(el){
+      // find index of this preview and remove
+      const thumb = el.closest('.thumb');
+      const imgs = Array.from(previewContainer.querySelectorAll('.thumb img')).map(i=>i.src);
+      const src = thumb.querySelector('img').src;
+      const idx = uploadedImages.indexOf(src);
+      if (idx !== -1) uploadedImages.splice(idx,1);
+      thumb.remove();
+      // clear file input so reselecting same file works
+      fileInput.value = '';
+    };
+
+    function formatCurrency(num){return '₹ ' + Number(num).toLocaleString('en-IN');}
+
+function render() {
+  const grid = document.getElementById('propertyGrid');
+  grid.innerHTML = '';
+
+  let total = 0, available = 0, lost = 0, won = 0, value = 0;
+
+  const filtered = properties.filter(filterFn);
+  if (filtered.length === 0) {
+    grid.innerHTML = '<div class="empty">No properties found. Try relaxing filters or add new properties.</div>';
+  }
+
+  filtered.forEach((p, idx) => {
+    total++;
+    if (p.status === 'Available') available++;
+    if (p.status === 'Lost') lost++;
+    if (p.status === 'Won') won++;
+    value += p.price;
+
+    // Card
+    const card = document.createElement('article');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-body">
+        <div style="display:flex; gap:8px; align-items:center;">
+		  <div class="pill ${p.type.toLowerCase()}">${p.type}</div>
+          <div class="pill ${p.status.toLowerCase()}">${p.status}</div>
+        </div>
+		<div class="meta">
+		  <div>
+			<div class="title">${p.title}</div>
+			${p.type === "Property" ? `<a href="${p.location}" target="_blank">📍 View on Map</a>` : ""}
+			<div class="sub">Address: ${p.address}</div>
+		  </div>
+		</div>
+
+        <div class="props">
+          <div class="sub">Details: ${p.details}</div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <button class="btn secondary" onclick="viewProperty('${p.id}')"><i class="fa-solid fa-eye"></i>View</button>
+        <button class="btn secondary" onclick="openEditModal('${p.id}')"><i class="fa-solid fa-pen"></i>Edit</button>
+        <button class="btn secondary" onclick="exportPropertyPDF('${p.id}')"><i class="fa-solid fa-file-pdf"></i>Export PDF</button>
+      </div>`;
+
+    grid.appendChild(card);
+  });
+
+  // Update stats
+  document.getElementById('totalCount').innerText = total;
+  document.getElementById('activeCount').innerText = available;
+
+  // ✅ Add new counts (make sure you have elements in HTML with these IDs)
+  document.getElementById('lostCount').innerText = lost;
+  document.getElementById('wonCount').innerText = won;
+}
+
+
+function findIndexById(id){return properties.findIndex(p=>p.id===id);} 
+
+// Toggle sidebar button logic
+function toggleSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  const topbar = document.querySelector('.topbar');
+
+  if (window.innerWidth <= 880) {
+    sidebar.classList.toggle('show');
+
+    if (sidebar.classList.contains('show')) {
+      topbar.classList.add('hide-on-mobile');
+    } else {
+      topbar.classList.remove('hide-on-mobile');
+    }
+  } else {
+    sidebar.classList.toggle('hidden'); // desktop collapse
+  }
+}
+
+
+
+
+
+
+function viewProperty(id){
+  const i=findIndexById(id);
+  if(i<0) return alert('Property not found');
+  currentViewIndex=i;
+  const p=properties[i];
+
+  document.getElementById('viewTitle').innerText=p.title;
+  document.getElementById('viewMainImage').src=p.images && p.images[0] ? p.images[0] : '';
+  const thumbs=document.getElementById('viewThumbs'); 
+  thumbs.innerHTML='';
+  (p.images||[]).forEach(src=>{
+    const d=document.createElement('div'); 
+    d.className='thumb'; 
+    d.innerHTML=`<img src="${src}" alt="" onclick="setMainImage(this.src)"/>`; 
+    thumbs.appendChild(d);
+  });
+  
+  
+
+  document.getElementById('viewId').innerText=p.id;
+  document.getElementById('viewType').innerText=p.type;  
+  document.getElementById('viewAddress').innerText=p.address;
+  document.getElementById('viewlocation').innerText=p.location;
+  document.getElementById('viewDetails').innerText=p.details;
+
+  // ✅ Show attachments if present
+  const content = document.querySelector('#viewBackdrop .content');
+  let oldFilesList = content.querySelector('#viewFilesList');
+  if(oldFilesList) oldFilesList.remove(); // clear previous
+  if(p.attachments && p.attachments.length){
+    const filesList=document.createElement('div');
+    filesList.id='viewFilesList';
+    filesList.style.marginTop='12px';
+    filesList.innerHTML='<strong>Attachments:</strong>';
+    p.attachments.forEach(f=>{
+      const link=document.createElement('a');
+      link.href=f.dataUrl;
+      link.download=f.name;
+      link.textContent='📎 '+f.name;
+      link.style.display='block';
+      link.style.fontSize='16px';
+      link.style.color='#2563eb';
+      link.style.marginTop='4px';
+      filesList.appendChild(link);
+    });
+    content.appendChild(filesList);
+  }
+
+  document.getElementById('viewBackdrop').style.display='grid';
+}
+function setMainImage(src){document.getElementById('viewMainImage').src=src}
+function closeViewModal(e){ if(e && e.target && e.target.id!=='viewBackdrop') return; document.getElementById('viewBackdrop').style.display='none'; currentViewIndex=null }
+
+function openEditModal(id){
+  // reset uploadedImages + uploadedFiles each time modal opens
+  closeAllModals();  // ✅ always close others first
+  uploadedImages = [];
+  previewContainer.innerHTML = '';
+  fileInput.value = '';
+  uploadedFiles = [];
+  filePreviewContainer.innerHTML = '';
+  fileAttachmentInput.value = '';
+
+  if(id){
+    const i=findIndexById(id); 
+    if(i<0) return alert('Property not found');
+    editingIndex=i; 
+    document.getElementById('editTitle').innerText='Edit Property';
+    const p=properties[i];
+    document.getElementById('fId').value=p.id;
+	document.getElementById('fType').value = p.type;
+    document.getElementById('fAddress').value=p.address;
+    document.getElementById('fLocation').value=p.location;	
+    document.getElementById('fTitle').value=p.title;
+    document.getElementById('fStatus').value=p.status;
+    document.getElementById('fDetails').value=p.details;
+
+    // ✅ populate uploadedImages for preview/edit
+    if(p.images && p.images.length){
+      uploadedImages = p.images.slice();
+      uploadedImages.forEach(src=>{
+        const d=document.createElement('div'); 
+        d.className='thumb';
+        d.innerHTML=`<img src="${src}" alt="preview"/> 
+                     <div class="remove" title="Remove" onclick="removePreview(this)">&times;</div>`;
+        previewContainer.appendChild(d);
+      });
+    } else {
+      document.getElementById('fImages').value='';
+    }
+
+    // ✅ populate attachments for preview/edit
+    if(p.attachments && p.attachments.length){
+      uploadedFiles = p.attachments.slice();
+      uploadedFiles.forEach(f=>{
+        const d=document.createElement('div');
+        d.className='thumb';
+        d.style.width='auto'; d.style.height='auto';
+        d.style.padding='6px 10px'; d.style.background='#eef2ff';
+        d.style.borderRadius='6px'; d.style.display='flex';
+        d.style.alignItems='center'; d.style.gap='6px';
+        d.innerHTML=`
+          <i class="fa-solid fa-file"></i>
+          <span style="font-size:12px">${f.name}</span>
+          <div class="remove" onclick="removeFilePreview(this)">&times;</div>`;
+        filePreviewContainer.appendChild(d);
+      });
+    }
+  }  else {
+  editingIndex = null; 
+  document.getElementById('editTitle').innerText = 'New Property';
+  ['fAddress','fTitle', 'fType','fLocation','fDetails','fImages'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('fStatus').value='Available';
+  document.getElementById('fType').value = 'Property';  
+
+
+  // ✅ Auto-generate sequential ID with ND- prefix
+  const newId = generateSequentialId();
+  document.getElementById('fId').value = newId;
+  document.getElementById('fId').readOnly = true;
+}
+
+
+  document.getElementById('editBackdrop').style.display='grid';
+}
+
+
+
+function openNewModal(){ 
+  openEditModal(null); 
+
+  // 👇 Auto-close sidebar if in mobile mode
+  const sidebar = document.querySelector('.sidebar');
+  if (window.innerWidth <= 880) {
+    sidebar.classList.remove('show');
+  }
+}
+
+function closeEditModal(e) {
+  if (!e || (e.target && e.target.id === 'editBackdrop')) {
+    document.getElementById('editBackdrop').style.display = 'none';
+    editingIndex = null; 
+    uploadedImages = []; 
+    previewContainer.innerHTML = ''; 
+    fileInput.value = ''; 
+  }
+}
+
+
+function generateSequentialId() {
+  if (properties.length === 0) return "ND-0000001";
+
+  // extract numeric part from existing IDs
+  const numbers = properties
+    .map(p => parseInt((p.id || "0").replace("ND-", "")) || 0);
+
+  const maxNum = Math.max(...numbers);
+
+  // increment and pad with leading zeros (7 digits)
+  const nextNum = String(maxNum + 1).padStart(7, "0");
+
+  return "ND-" + nextNum;
+}
+
+
+function saveProperty() {
+  const id = document.getElementById('fId').value.trim();
+  const type = document.getElementById('fType').value;
+  const address = document.getElementById('fAddress').value.trim();
+  const location = document.getElementById('fLocation').value.trim();  
+  const title = document.getElementById('fTitle').value.trim();
+  const status = document.getElementById('fStatus').value;
+  const details = document.getElementById('fDetails').value.trim();
+
+  if (!id || !title) { 
+    return alert('Please provide at least ID and Title'); 
+  }
+
+  // ✅ Images
+  let images = uploadedImages.length ? uploadedImages.slice() : [makeSVGDataUrl(id, '#c7b8ff')];
+
+  // ✅ Attachments: merge existing + new
+  let attachments = [];
+  if (editingIndex !== null && editingIndex !== undefined) {
+    const existingAttachments = properties[editingIndex].attachments || [];
+    // keep old ones, add new ones if not already present (by name)
+    attachments = [
+      ...existingAttachments,
+      ...uploadedFiles.filter(f => !existingAttachments.some(old => old.name === f.name))
+    ];
+  } else {
+    attachments = uploadedFiles.slice();
+  }
+
+  const updated = new Date().toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+  const payload = { id, title, address, location, status, type, details, updated, images, attachments };
+
+
+  if (editingIndex !== null && editingIndex !== undefined) {
+    properties[editingIndex] = payload;
+  } else {
+    const existing = findIndexById(id);
+    if (existing !== -1) {
+      if (!confirm('ID already exists. Overwrite existing property?')) return;
+      properties[existing] = payload;
+    } else {
+      properties.push(payload);
+    }
+  }
+
+// ✅ Persist to IndexedDB
+savePropertiesToStorage();
+
+
+  // Reset
+  uploadedImages = [];
+  previewContainer.innerHTML = '';
+  fileInput.value = '';
+  uploadedFiles = [];
+  filePreviewContainer.innerHTML = '';
+  fileAttachmentInput.value = '';
+
+  closeEditModal();
+  render();
+}
+
+
+
+
+    function deleteProperty(id){
+      if(!confirm('Delete property ' + id + '?')) return;
+      const idx=findIndexById(id); if(idx>=0){ properties.splice(idx,1); render(); savePropertiesToStorage(); }
+    }
+
+    // FILTER
+function filterFn(p) {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const status = document.getElementById('statusFilter').value;
+  const type = document.getElementById('typeFilter').value;
+
+  const allText = JSON.stringify(p).toLowerCase();
+
+  return (
+    p.status === status &&
+    p.type === type &&
+    allText.includes(search)
+  );
+}
+
+
+    function applyFilters(){ render(); }
+
+    // EXPORTS
+    function makePrintableBlock(p){
+      // build a node for printing
+      const wrapper = document.createElement('div');
+      wrapper.className='printable';
+      wrapper.style.marginBottom='19px';
+      wrapper.innerHTML = `
+        <h2 style="margin-bottom:6px; font-size:19px;">${p.title}</h2>
+        <div style="margin-bottom:8px"><strong>ID:</strong> ${p.id} &nbsp;&nbsp; <strong>Address:</strong> ${p.city}</div>
+        <div style="display:flex;gap:12px;margin-bottom:8px"><div><strong>Area</strong><div>${p.area} Guntha</div></div><div><strong>Price</strong><div>${formatCurrency(p.price)}</div></div><div><strong>Status</strong><div>${p.status}</div></div></div>
+      `;
+      // images
+      (p.images||[]).forEach(src=>{
+        const img = document.createElement('img'); img.src = src; img.style.width='100%'; img.style.maxHeight='360px'; img.style.objectFit='cover'; img.style.display='block'; img.style.marginTop='8px'; wrapper.appendChild(img);
+      });
+      return wrapper;
+    }
+
+
+
+
+
+function exportPropertyPDF(id) {
+  const idx = findIndexById(id);
+  if (idx < 0) return alert('Property not found');
+  const p = properties[idx];
+
+  // === Build container ===
+  const container = document.createElement('div');
+  container.style.background = '#fff';
+  container.style.padding = '12px';
+
+  const detailsText = (p.details || "")
+    .split("\n")
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .map(line => `<li>${line}</li>`)
+    .join("");
+
+  const details = document.createElement('div');
+  details.className = 'printable';
+  details.innerHTML = `
+    <h2 style="margin-bottom:6px; font-size:21px;"><strong>Title: </strong>${p.title}</h2>
+    <div style="margin-bottom:8px; font-size:18px;"><strong>Address: </strong> ${p.address}</div>
+    ${
+      p.location
+        ? `<div style="margin-bottom:8px; font-size:18px;">
+            <strong>Location: </strong>
+            <a href="${p.location}" target="_blank" style="color:#2563eb; text-decoration:underline;">
+              📍 View on Maps
+            </a>
+          </div>`
+        : ""
+    }
+    <div style="margin-bottom:8px; font-size:18px;">
+      <strong>Details: </strong>
+      <ul style="margin-top:4px; padding-left:19px; line-height:1.4;">
+        ${detailsText}
+      </ul>
+    </div>
+  `;
+  container.appendChild(details);
+
+  // === Images (force on next pages) ===
+  if (p.images && p.images.length) {
+    const br = document.createElement('div');
+    br.className = 'page-break';
+    container.appendChild(br);
+
+    for (let i = 0; i < p.images.length; i += 2) {
+      const page = document.createElement('div');
+      page.className = 'printable';
+      page.style.display = 'flex';
+      page.style.flexDirection = 'column';
+      page.style.gap = '12px';
+      page.style.paddingTop = '30px'; // spacing from header
+
+      const img1 = document.createElement('img');
+      img1.src = p.images[i];
+      img1.style.width = '100%';
+      img1.style.maxHeight = '360px';
+      img1.style.objectFit = 'cover';
+      page.appendChild(img1);
+
+      if (p.images[i + 1]) {
+        const img2 = document.createElement('img');
+        img2.src = p.images[i + 1];
+        img2.style.width = '100%';
+        img2.style.maxHeight = '360px';
+        img2.style.objectFit = 'cover';
+        page.appendChild(img2);
+      }
+
+      container.appendChild(page);
+
+      if (i + 2 < p.images.length) {
+        const br2 = document.createElement('div');
+        br2.className = 'page-break';
+        container.appendChild(br2);
+      }
+    }
+  }
+
+  document.body.appendChild(container);
+
+	// sanitize title for filename
+	const safeTitle = (p.title || "property").replace(/[\\\/:*?"<>|]/g, "_");
+
+  const opt = {
+    margin: [0.8, 0.4, 0.8, 0.4],
+    filename: `${safeTitle}.pdf`,
+    image: { type: 'jpeg', quality: 0.95 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+  };
+
+  // === Generate PDF ===
+  setTimeout(() => {
+    html2pdf()
+      .set(opt)
+      .from(container)
+      .toPdf()
+      .get('pdf')
+      .then(pdf => {
+        const totalPages = pdf.internal.getNumberOfPages();
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+
+        const headerY = 0.4;
+        const footerY = pageHeight - 0.3;
+        const lineInset = 0.6;
+
+        for (let i = 1; i <= totalPages; i++) {
+          pdf.setPage(i);
+
+          // === WATERMARK (one per page, diagonal) ===
+          pdf.setFont("helvetica", "normal"); // normal
+		  pdf.setFontSize(40);
+          pdf.setTextColor(240, 240, 240); // light gray
+			pdf.text(
+			  agentProfile.reraNo,
+			  pageWidth / 2,
+			  pageHeight / 2,
+			  { angle: 25, align: 'center' }
+			);
+
+          // === Header ===
+          pdf.setFontSize(15);
+          pdf.setTextColor(0, 0, 0);
+		  pdf.text(`Real Estate Consultant: ${agentProfile.name}`, pageWidth / 2, headerY, { align: 'center' });
+		  pdf.text(`Rera No: ${agentProfile.reraNo}`, pageWidth / 2, headerY + 0.20, { align: 'center' });
+		  pdf.text(`Contact No: ${agentProfile.contact}`, pageWidth / 2, headerY + 0.40, { align: 'center' });
+
+          // === Line under header ===
+          pdf.setLineWidth(0.01);
+          pdf.line(lineInset, headerY + 0.50, pageWidth - lineInset, headerY + 0.50);
+
+          // === Footer ===
+          pdf.setFontSize(10);
+          pdf.setTextColor(100, 100, 100);
+          pdf.text(`Page ${i} of ${totalPages}`, pageWidth / 2, footerY, { align: 'center' });
+
+          pdf.setLineWidth(0.01);
+          pdf.line(lineInset, footerY - 0.17, pageWidth - lineInset, footerY - 0.17);
+        }
+
+        pdf.save(`${safeTitle}.pdf`);
+        document.body.removeChild(container);
+      });
+  }, 300);
+}
+
+
+    // load saved data (if any) then render
+// Load from IndexedDB first, then render
+Promise.all([loadProfile(), loadPropertiesFromStorage()]).then(([profile]) => {
+  if (profile) updateUIWithProfile(profile);
+  render();
+});
+
+
+window.addEventListener('resize', () => {
+  const sidebar = document.querySelector('.sidebar');
+  if (window.innerWidth > 880) {
+    sidebar.classList.remove('show'); // remove mobile overlay
+  }
+});
+
+
+    // keyboard shortcuts (optional quality-of-life)
+    document.addEventListener('keydown', e=>{
+      if(e.key==='Escape'){
+        closeEditModal(); closeViewModal();
+      }
+    });
+
+    // also save on unload to be safe
+    window.addEventListener('beforeunload', ()=> {
+      try{ savePropertiesToStorage(); }catch(e){}
+    });
+  </script>
+</body>
+</html>

@@ -346,12 +346,14 @@
   max-height: 90vh;    /* keep existing maximum */
   width: 100%;
   box-sizing: border-box;
+  border: 1px solid #e6eef9;       /* stronger visible border */
+  box-shadow: 0 8px 24px rgba(2,6,23,0.08); /* subtle deeper shadow */
 }
 
 /* content area becomes the scrolling region */
 .modal .content {
   /* remove top padding so header sits flush with modal top */
-  padding: 0 2px 2px 2px; /* top 0, right 12, bottom 12, left 12 */
+  padding: 0 5px 5px 5px; /* top 0, right 12, bottom 12, left 12 */
   overflow: auto;
   flex: 1 1 auto;
 }
@@ -362,7 +364,7 @@
   top: 0;
   z-index: 30;                       /* above scrolling content */
   background: linear-gradient(180deg, #ffffff, #f7fafc); /* subtle background */
-  padding: 12px 14px;
+  padding: 10px 10px;
   margin: 0;                         /* remove previous margin-bottom gap */
   display: flex;
   align-items: center;

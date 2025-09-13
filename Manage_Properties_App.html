@@ -1717,53 +1717,68 @@ function exportPropertyPDF(id) {
   `;
   container.appendChild(details);
 
-  // images (use actual src from stored object)
+  // === Images (only include those marked visible) ===
   if (p.images && p.images.length) {
-    // page-break not necessary before first page but keep as you had it
-    const br = document.createElement('div');
-    br.className = 'page-break';
-    container.appendChild(br);
+    // normalize and keep only visible images (supports both string and {src,visible} items)
+    const visibleImages = p.images
+      .map(it => {
+        if (!it) return null;
+        if (typeof it === 'string') return { src: it, visible: true };
+        return { src: it.src || it.dataUrl || '', visible: (it.visible !== false) };
+      })
+      .filter(Boolean)
+      .filter(it => it.src && it.visible); // only real src and visible
 
-    for (let i = 0; i < p.images.length; i += 2) {
-      const page = document.createElement('div');
-      page.className = 'printable';
-      page.style.display = 'flex';
-      page.style.flexDirection = 'column';
-      page.style.gap = '12px';
-      page.style.paddingTop = '30px';
+    if (visibleImages.length) {
+      // optional: start images on a new printable page (same as before)
+      const br = document.createElement('div');
+      br.className = 'page-break';
+      container.appendChild(br);
 
-      const src1 = _srcOfImageItem(p.images[i]);
-      if (src1) {
-        const img1 = document.createElement('img');
-        // attempt to enable CORS for external images (no effect if server doesn't allow it)
-        if (!src1.startsWith('data:')) img1.crossOrigin = 'anonymous';
-        img1.src = src1;
-        img1.style.width = '100%';
-        img1.style.maxHeight = '360px';
-        img1.style.objectFit = 'cover';
-        page.appendChild(img1);
-      }
+      // add images two-per-page as before, but only using visibleImages
+      for (let i = 0; i < visibleImages.length; i += 2) {
+        const page = document.createElement('div');
+        page.className = 'printable';
+        page.style.display = 'flex';
+        page.style.flexDirection = 'column';
+        page.style.gap = '12px';
+        page.style.paddingTop = '30px';
 
-      const src2 = _srcOfImageItem(p.images[i + 1]);
-      if (src2) {
-        const img2 = document.createElement('img');
-        if (!src2.startsWith('data:')) img2.crossOrigin = 'anonymous';
-        img2.src = src2;
-        img2.style.width = '100%';
-        img2.style.maxHeight = '360px';
-        img2.style.objectFit = 'cover';
-        page.appendChild(img2);
-      }
+        const src1 = visibleImages[i].src;
+        if (src1) {
+          const img1 = document.createElement('img');
+          if (!src1.startsWith('data:')) img1.crossOrigin = 'anonymous';
+          img1.src = src1;
+          img1.style.width = '100%';
+          img1.style.maxHeight = '360px';
+          img1.style.objectFit = 'cover';
+          page.appendChild(img1);
+        }
 
-      container.appendChild(page);
+        if (visibleImages[i + 1]) {
+          const src2 = visibleImages[i + 1].src;
+          if (src2) {
+            const img2 = document.createElement('img');
+            if (!src2.startsWith('data:')) img2.crossOrigin = 'anonymous';
+            img2.src = src2;
+            img2.style.width = '100%';
+            img2.style.maxHeight = '360px';
+            img2.style.objectFit = 'cover';
+            page.appendChild(img2);
+          }
+        }
 
-      if (i + 2 < p.images.length) {
-        const br2 = document.createElement('div');
-        br2.className = 'page-break';
-        container.appendChild(br2);
+        container.appendChild(page);
+
+        if (i + 2 < visibleImages.length) {
+          const br2 = document.createElement('div');
+          br2.className = 'page-break';
+          container.appendChild(br2);
+        }
       }
     }
   }
+
 
   document.body.appendChild(container);
 

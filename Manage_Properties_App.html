@@ -445,13 +445,6 @@
 .lb-controls .btn.secondary { background: transparent; border: 1px solid rgba(255,255,255,0.12); color: #fff; }
 .lb-controls .btn { background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.06); }
 
-/* Lightbox styles */
-#lightbox { display: none; align-items: center; justify-content: center; }
-#lightboxImg { transition: transform .2s ease; cursor: zoom-out; }
-
-/* Prevent image click from selecting text while zooming */
-#lightboxImg, #lightboxCloseBtn { user-select: none; -webkit-user-drag: none; }
-
 
 
 </style>
@@ -709,18 +702,16 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
 
-<!-- LIGHTBOX (place just before </body>) -->
-<div id="lightbox" style="display:none;position:fixed;inset:0;z-index:12000;
-     background:rgba(0,0,0,0.85);place-items:center;" onclick="closeLightbox()">
-  <div style="position:relative;max-width:95%;max-height:95%;display:grid;place-items:center;">
-    <button id="lightboxCloseBtn" onclick="event.stopPropagation(); closeLightbox()"
-            style="position:absolute;top:-18px;right:-18px;background:#fff;border-radius:50%;width:36px;height:36px;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.2);">
-      ×
-    </button>
-    <img id="lightboxImg" src="" alt="zoom" style="max-width:100%;max-height:100%;object-fit:contain;"/>
+<!-- Lightbox for zoom/pan of clicked images -->
+<div id="lightbox" class="lightbox" style="display:none;" onclick="closeLightbox(event)">
+  <img id="lightboxImg" src="" alt="zoomed image" />
+  <div class="lb-controls">
+    <button class="btn" onclick="zoomIn(event)" title="Zoom in">+</button>
+    <button class="btn" onclick="zoomOut(event)" title="Zoom out">−</button>
+    <button class="btn secondary" onclick="resetZoom(event)" title="Reset">Reset</button>
+    <button class="btn secondary" onclick="closeLightbox(event)" title="Close">Close</button>
   </div>
 </div>
-
 
 
   <script>
@@ -1212,7 +1203,7 @@ function viewProperty(id){
   if (firstImage) {
     mainImg.src = firstImage;
     mainImg.style.display = 'block';
-	mainImg.onclick = function() { openLightbox(this.src); };
+	makeViewImageClickable(mainImg);
     noImage.style.display = 'none';
   } else {
     mainImg.src = '';           // clear src to avoid broken icon
@@ -1236,11 +1227,7 @@ function viewProperty(id){
     const img = document.createElement('img');
     img.src = src;
     img.alt = '';
-    img.onclick = function() {
-  setMainImage(this.src);
-  openLightbox(this.src);
-};
-
+    img.onclick = function() { setMainImage(this.src); };
     img.onerror = function() {
       // hide broken thumb image and show a simple label instead
       const fallback = document.createElement('div');
@@ -1311,13 +1298,12 @@ function setMainImage(src){
   }
   mainImg.src = src;
   mainImg.style.display = 'block';
-
+  makeViewImageClickable(mainImg);
   noImage.style.display = 'none';
   mainImg.onerror = function() {
     mainImg.style.display = 'none';
     noImage.style.display = 'grid';
   };
-  mainImg.onclick = function() { if (this.src) openLightbox(this.src); };
 }
 
 function closeViewModal(e){
@@ -1714,37 +1700,24 @@ function updateLightboxTransform() {
   img.style.transform = `translate(${_lbTx}px, ${_lbTy}px) scale(${_lbScale})`;
 }
 
-// --- Lightbox open/close helpers ---
-let isLightboxOpen = false;
-
-function openLightbox(src) {
-  if (!src) return;
+function openLightbox(src, ev) {
+  if (ev) ev.stopPropagation();
   const lb = document.getElementById('lightbox');
   const img = document.getElementById('lightboxImg');
+  if (!lb || !img) return;
   img.src = src;
-  lb.style.display = 'grid';
-  isLightboxOpen = true;
-
-  // optional: prevent background scrolling while open
-  document.body.style.overflow = 'hidden';
+  lb.style.display = 'flex';
+  _lbScale = 1; _lbTx = 0; _lbTy = 0; updateLightboxTransform();
+  img.style.cursor = 'grab';
 }
 
-function closeLightbox() {
+function closeLightbox(e) {
+  if (e && e.target && e.target.id === 'lightboxImg') return;
   const lb = document.getElementById('lightbox');
-  const img = document.getElementById('lightboxImg');
+  if (!lb) return;
   lb.style.display = 'none';
-  img.src = '';
-  isLightboxOpen = false;
-  document.body.style.overflow = ''; // restore
+  _lbScale = 1; _lbTx = 0; _lbTy = 0; updateLightboxTransform();
 }
-
-// allow click on the main image to open lightbox too
-document.getElementById('viewMainImage').addEventListener('click', function(e){
-  if (this.src) openLightbox(this.src);
-});
-
-// Replace thumbnail click handlers where thumbnails are created (see next step)
-
 
 function zoomIn(e){ if(e) e.stopPropagation(); _lbScale = Math.min(5, _lbScale + 0.25); updateLightboxTransform(); }
 function zoomOut(e){ if(e) e.stopPropagation(); _lbScale = Math.max(0.25, _lbScale - 0.25); updateLightboxTransform(); }
@@ -1819,17 +1792,15 @@ window.addEventListener('resize', () => {
 });
 
 
-document.addEventListener('keydown', e => {
+// keyboard shortcuts (optional quality-of-life)
+document.addEventListener('keydown', e=>{
   if (e.key === 'Escape') {
-    // Only close the lightbox on Escape. Don't close modals here.
-    if (isLightboxOpen) {
-      closeLightbox();
-      e.stopPropagation();
-      e.preventDefault();
-    }
+    closeEditModal();
+    closeViewModal();
+    // close focused lightbox if open (safe guard if function not defined)
+    if (typeof closeLightbox === 'function') closeLightbox();
   }
 });
-
 
 
     // also save on unload to be safe
@@ -1839,3 +1810,4 @@ document.addEventListener('keydown', e => {
   </script>
 </body>
 </html>
+

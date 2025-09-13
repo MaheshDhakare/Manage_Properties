@@ -1792,15 +1792,28 @@ window.addEventListener('resize', () => {
 });
 
 
-// keyboard shortcuts (optional quality-of-life)
-document.addEventListener('keydown', e=>{
-  if (e.key === 'Escape') {
-    closeEditModal();
-    closeViewModal();
-    // close focused lightbox if open (safe guard if function not defined)
+// keyboard: Escape should close ONLY the lightbox (if open)
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape') return;
+
+  const lb = document.getElementById('lightbox');
+  if (!lb) return;
+
+  // Use computed style so inline vs CSS display both work
+  const isVisible = window.getComputedStyle(lb).display !== 'none';
+
+  if (isVisible) {
+    // if lightbox open -> close it and stop the event so modals don't react
     if (typeof closeLightbox === 'function') closeLightbox();
+    e.preventDefault();
+    e.stopPropagation();
+  } else {
+    // Lightbox not open -> do nothing (keeps modals intact)
+    // If you later want Esc to also close modals when lightbox is closed,
+    // add closeViewModal()/closeEditModal() here (but you said you don't want that).
   }
 });
+
 
 
     // also save on unload to be safe
@@ -1810,4 +1823,3 @@ document.addEventListener('keydown', e=>{
   </script>
 </body>
 </html>
-

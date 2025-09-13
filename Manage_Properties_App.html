@@ -672,10 +672,10 @@
             <label class="muted">RERA No</label>
             <input id="profileRera" class="field" />
           </div>
-          <div>
-            <label class="muted">WATERMARK</label>
-            <input id="profileWatermark" class="field" />
-          </div>		  
+			<div>
+			  <label class="muted">WATERMARK</label>
+			  <input id="profileWatermark" class="field" maxlength="40" placeholder="Up to 40 letters" />
+			</div>
           <div>
             <label class="muted">Contact</label>
             <input id="profileContact" class="field" />
@@ -1630,6 +1630,31 @@ function exportPropertyPDF(id) {
     jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
   };
 
+  // --- Begin: compute maxWidthPx and apply to images (for html2canvas) ---
+  // A4 width (portrait) in inches
+  const a4WidthIn = 8.27;
+  // margins in inches from opt.margin: [top, right, bottom, left]
+  const marginRightIn = (opt.margin && opt.margin[1]) || 0;
+  const marginLeftIn  = (opt.margin && opt.margin[3]) || 0;
+  const printableWidthIn = a4WidthIn - marginLeftIn - marginRightIn;
+
+  // html2canvas scale (same as opt) -> pixels per inch
+  const html2canvasScale = (opt.html2canvas && opt.html2canvas.scale) || 2;
+  const pxPerInch = 96 * html2canvasScale; // browser CSS px per inch baseline (approx)
+  const maxWidthPx = Math.floor(printableWidthIn * pxPerInch);
+
+  // Apply computed max width to images in container so html2canvas renders them at controlled width
+  const imgsToConstrain = container.querySelectorAll('img');
+  imgsToConstrain.forEach(img => {
+    img.style.maxWidth = maxWidthPx + 'px';
+    img.style.width = 'auto';
+    img.style.height = 'auto';
+    img.style.display = 'block';
+    img.style.margin = '0 auto';
+  });
+  // --- End ---
+
+
   // === Generate PDF ===
   setTimeout(() => {
     html2pdf()
@@ -1649,16 +1674,36 @@ function exportPropertyPDF(id) {
         for (let i = 1; i <= totalPages; i++) {
           pdf.setPage(i);
 
-          // === WATERMARK (one per page, diagonal) ===
-          pdf.setFont("helvetica", "normal"); // normal
-		  pdf.setFontSize(40);
-          pdf.setTextColor(240, 240, 240); // light gray
-			pdf.text(
-			  agentProfile.watermark,
-			  pageWidth / 2,
-			  pageHeight / 2,
-			  { angle: 25, align: 'center' }
-			);
+
+          // === MULTI-LINE WRAPPED WATERMARK ===
+          pdf.setFont("helvetica", "normal");
+          const wmFontSize = 40; // adjust as desired (points)
+          pdf.setFontSize(wmFontSize);
+          pdf.setTextColor(240, 240, 240);
+
+          // available width for watermark lines (in PDF units - same units as pageWidth/pageHeight)
+          const paddingIn = 0.2; // small visual padding (inches)
+          const maxLineWidthIn = pageWidth - (lineInset + paddingIn) * 2;
+
+          // splitTextToSize expects width in same jsPDF units (inches here)
+          const watermarkText = (agentProfile.watermark || "").toString();
+          const watermarkLines = pdf.splitTextToSize(watermarkText, maxLineWidthIn);
+
+          // compute line height in inches (1pt = 1/72 inch), add small multiplier for spacing
+          const lineHeightIn = (wmFontSize / 72) * 1.1;
+
+          // center vertically around middle of page and draw each line with rotation
+          const centerX = pageWidth / 2;
+          const centerY = pageHeight / 2;
+          const totalHeightIn = watermarkLines.length * lineHeightIn;
+          let startYIn = centerY - (totalHeightIn / 2) + (lineHeightIn / 2);
+
+          watermarkLines.forEach(line => {
+            pdf.text(line, centerX, startYIn, { angle: 25, align: 'center' });
+            startYIn += lineHeightIn;
+          });
+
+
 
           // === Header ===
           pdf.setFontSize(15);

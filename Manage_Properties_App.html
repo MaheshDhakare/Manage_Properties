@@ -1681,16 +1681,25 @@ function filterFn(p) {
 
 
 
+
+// --- helper to get real src from stored image item ---
+function _srcOfImageItem(item){
+  if (!item) return '';
+  if (typeof item === 'string') return item;
+  return item.src || item.dataUrl || '';
+}
+
 function exportPropertyPDF(id) {
   const idx = findIndexById(id);
   if (idx < 0) return alert('Property not found');
   const p = properties[idx];
 
-  // === Build container ===
+  // build container as before...
   const container = document.createElement('div');
   container.style.background = '#fff';
   container.style.padding = '12px';
 
+  // ...details html (unchanged) ...
   const detailsText = (p.details || "")
     .split("\n")
     .map(line => line.trim())
@@ -1703,27 +1712,14 @@ function exportPropertyPDF(id) {
   details.innerHTML = `
     <h2 style="margin-bottom:6px; font-size:21px;"><strong>Title: </strong>${p.title}</h2>
     <div style="margin-bottom:8px; font-size:18px;"><strong>Address: </strong> ${p.address}</div>
-    ${
-      p.location
-        ? `<div style="margin-bottom:8px; font-size:18px;">
-            <strong>Location: </strong>
-            <a href="${p.location}" target="_blank" style="color:#2563eb; text-decoration:underline;">
-              📍 View on Maps
-            </a>
-          </div>`
-        : ""
-    }
-    <div style="margin-bottom:8px; font-size:18px;">
-      <strong>Details: </strong>
-      <ul style="margin-top:4px; padding-left:19px; line-height:1.4;">
-        ${detailsText}
-      </ul>
-    </div>
+    ${ p.location ? `<div style="margin-bottom:8px; font-size:18px;"><strong>Location: </strong><a href="${p.location}" target="_blank" style="color:#2563eb; text-decoration:underline;">📍 View on Maps</a></div>` : "" }
+    <div style="margin-bottom:8px; font-size:18px;"><strong>Details: </strong><ul style="margin-top:4px; padding-left:19px; line-height:1.4;">${detailsText}</ul></div>
   `;
   container.appendChild(details);
 
-  // === Images (force on next pages) ===
+  // images (use actual src from stored object)
   if (p.images && p.images.length) {
+    // page-break not necessary before first page but keep as you had it
     const br = document.createElement('div');
     br.className = 'page-break';
     container.appendChild(br);
@@ -1734,18 +1730,25 @@ function exportPropertyPDF(id) {
       page.style.display = 'flex';
       page.style.flexDirection = 'column';
       page.style.gap = '12px';
-      page.style.paddingTop = '30px'; // spacing from header
+      page.style.paddingTop = '30px';
 
-      const img1 = document.createElement('img');
-      img1.src = p.images[i];
-      img1.style.width = '100%';
-      img1.style.maxHeight = '360px';
-      img1.style.objectFit = 'cover';
-      page.appendChild(img1);
+      const src1 = _srcOfImageItem(p.images[i]);
+      if (src1) {
+        const img1 = document.createElement('img');
+        // attempt to enable CORS for external images (no effect if server doesn't allow it)
+        if (!src1.startsWith('data:')) img1.crossOrigin = 'anonymous';
+        img1.src = src1;
+        img1.style.width = '100%';
+        img1.style.maxHeight = '360px';
+        img1.style.objectFit = 'cover';
+        page.appendChild(img1);
+      }
 
-      if (p.images[i + 1]) {
+      const src2 = _srcOfImageItem(p.images[i + 1]);
+      if (src2) {
         const img2 = document.createElement('img');
-        img2.src = p.images[i + 1];
+        if (!src2.startsWith('data:')) img2.crossOrigin = 'anonymous';
+        img2.src = src2;
         img2.style.width = '100%';
         img2.style.maxHeight = '360px';
         img2.style.objectFit = 'cover';
@@ -1764,8 +1767,8 @@ function exportPropertyPDF(id) {
 
   document.body.appendChild(container);
 
-	// sanitize title for filename
-	const safeTitle = (p.title || "property").replace(/[\\\/:*?"<>|]/g, "_");
+  // sanitize title for filename (keep your existing safeTitle logic)
+  const safeTitle = (p.title || "property").replace(/[\\\/:*?"<>|]/g, "_");
 
   const opt = {
     margin: [0.8, 0.4, 0.8, 0.4],
@@ -1775,21 +1778,17 @@ function exportPropertyPDF(id) {
     jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
   };
 
-  // --- Begin: compute maxWidthPx and apply to images (for html2canvas) ---
-  // A4 width (portrait) in inches
+  // ensure images are constrained and visible to html2canvas
+  const imgsToConstrain = container.querySelectorAll('img');
+  // compute printable width like you did
   const a4WidthIn = 8.27;
-  // margins in inches from opt.margin: [top, right, bottom, left]
   const marginRightIn = (opt.margin && opt.margin[1]) || 0;
   const marginLeftIn  = (opt.margin && opt.margin[3]) || 0;
   const printableWidthIn = a4WidthIn - marginLeftIn - marginRightIn;
-
-  // html2canvas scale (same as opt) -> pixels per inch
   const html2canvasScale = (opt.html2canvas && opt.html2canvas.scale) || 2;
-  const pxPerInch = 96 * html2canvasScale; // browser CSS px per inch baseline (approx)
+  const pxPerInch = 96 * html2canvasScale;
   const maxWidthPx = Math.floor(printableWidthIn * pxPerInch);
 
-  // Apply computed max width to images in container so html2canvas renders them at controlled width
-  const imgsToConstrain = container.querySelectorAll('img');
   imgsToConstrain.forEach(img => {
     img.style.maxWidth = maxWidthPx + 'px';
     img.style.width = 'auto';
@@ -1797,11 +1796,21 @@ function exportPropertyPDF(id) {
     img.style.display = 'block';
     img.style.margin = '0 auto';
   });
-  // --- End ---
 
+  // WAIT for all images to either load or error (so html2canvas sees real pixels)
+  const waitForImages = Array.from(imgsToConstrain).map(img => {
+    return new Promise(resolve => {
+      if (img.complete && img.naturalWidth && img.naturalWidth > 0) return resolve();
+      // still resolve on error so we don't hang
+      img.addEventListener('load', () => resolve());
+      img.addEventListener('error', () => resolve());
+      // small safety timeout in case neither event fires
+      setTimeout(resolve, 3000);
+    });
+  });
 
-  // === Generate PDF ===
-  setTimeout(() => {
+  Promise.all(waitForImages).then(() => {
+    // make PDF (same watermark/footer/header logic you had...)
     html2pdf()
       .set(opt)
       .from(container)
@@ -1819,53 +1828,36 @@ function exportPropertyPDF(id) {
         for (let i = 1; i <= totalPages; i++) {
           pdf.setPage(i);
 
-
-          // === MULTI-LINE WRAPPED WATERMARK ===
+          // watermark logic (unchanged)
           pdf.setFont("helvetica", "normal");
-          const wmFontSize = 40; // adjust as desired (points)
+          const wmFontSize = 40;
           pdf.setFontSize(wmFontSize);
           pdf.setTextColor(240, 240, 240);
-
-          // available width for watermark lines (in PDF units - same units as pageWidth/pageHeight)
-          const paddingIn = 0.2; // small visual padding (inches)
+          const paddingIn = 0.2;
           const maxLineWidthIn = pageWidth - (lineInset + paddingIn) * 2;
-
-          // splitTextToSize expects width in same jsPDF units (inches here)
           const watermarkText = (agentProfile.watermark || "").toString();
           const watermarkLines = pdf.splitTextToSize(watermarkText, maxLineWidthIn);
-
-          // compute line height in inches (1pt = 1/72 inch), add small multiplier for spacing
           const lineHeightIn = (wmFontSize / 72) * 1.1;
-
-          // center vertically around middle of page and draw each line with rotation
           const centerX = pageWidth / 2;
           const centerY = pageHeight / 2;
           const totalHeightIn = watermarkLines.length * lineHeightIn;
           let startYIn = centerY - (totalHeightIn / 2) + (lineHeightIn / 2);
-
           watermarkLines.forEach(line => {
             pdf.text(line, centerX, startYIn, { angle: 25, align: 'center' });
             startYIn += lineHeightIn;
           });
 
-
-
-          // === Header ===
+          // header/footer (unchanged)
           pdf.setFontSize(15);
           pdf.setTextColor(0, 0, 0);
-		  pdf.text(`Real Estate Consultant: ${agentProfile.name}`, pageWidth / 2, headerY, { align: 'center' });
-		  pdf.text(`Rera No: ${agentProfile.reraNo}`, pageWidth / 2, headerY + 0.20, { align: 'center' });
-		  pdf.text(`Contact No: ${agentProfile.contact}`, pageWidth / 2, headerY + 0.40, { align: 'center' });
-
-          // === Line under header ===
+          pdf.text(`Real Estate Consultant: ${agentProfile.name}`, pageWidth / 2, headerY, { align: 'center' });
+          pdf.text(`Rera No: ${agentProfile.reraNo}`, pageWidth / 2, headerY + 0.20, { align: 'center' });
+          pdf.text(`Contact No: ${agentProfile.contact}`, pageWidth / 2, headerY + 0.40, { align: 'center' });
           pdf.setLineWidth(0.01);
           pdf.line(lineInset, headerY + 0.50, pageWidth - lineInset, headerY + 0.50);
-
-          // === Footer ===
           pdf.setFontSize(10);
           pdf.setTextColor(100, 100, 100);
           pdf.text(`Page ${i} of ${totalPages}`, pageWidth / 2, footerY, { align: 'center' });
-
           pdf.setLineWidth(0.01);
           pdf.line(lineInset, footerY - 0.17, pageWidth - lineInset, footerY - 0.17);
         }
@@ -1873,8 +1865,18 @@ function exportPropertyPDF(id) {
         pdf.save(`${safeTitle}.pdf`);
         document.body.removeChild(container);
       });
-  }, 300);
+  });
 }
+
+
+
+
+
+
+
+
+
+
 
 /* ===== Lightbox + zoom/pan logic ===== */
 let _lbScale = 1;

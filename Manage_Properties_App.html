@@ -173,9 +173,26 @@
     .modal .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
     .thumbs{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
     .thumb{width:80px;height:60px;border-radius:8px;overflow:hidden;flex-shrink:0;position:relative}
-    .thumb img{width:100%;height:100%;object-fit:cover}
+    .thumb img{
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain; /* preserve aspect ratio, no cropping */
+  margin: 0 auto;
+}
     .thumb .remove{position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.6);color:white;border-radius:50%;width:20px;height:20px;display:grid;place-items:center;font-size:12px;cursor:pointer}
-    .main-img{width:100%;height:320px;object-fit:cover;border-radius:8px;background:#f3f6fb}
+    .main-img{
+  width: 100%;
+  height: auto;           /* allow natural aspect ratio */
+  max-height: 640px;      /* limit so it doesn't overflow the modal */
+  object-fit: contain;    /* preserve aspect ratio, don't crop */
+  border-radius: 8px;
+  background: #f3f6fb;
+  display: block;
+  margin: 0;              /* flush with header when used in modal */
+}
 
     /* printable area helpers */
     .printable{padding:19px;background:#fff;color:#10203a}
@@ -387,6 +404,53 @@
   box-shadow: 0 -4px 12px rgba(2,6,23,0.04);
 }
 
+/* Lightbox styles — paste immediately after .no-image-placeholder rule */
+.lightbox{
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2,6,23,0.85);
+  z-index: 11000;
+  padding: 20px;
+}
+.lightbox img{
+  max-width: 92%;
+  max-height: 92%;
+  transform-origin: center center;
+  cursor: grab;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-drag: none;
+  transition: transform 0.08s linear;
+}
+.lb-controls{
+  display:flex;
+  gap:8px;
+  position:fixed;
+  right:18px;
+  bottom:18px;
+  z-index:11001;
+}
+.lb-controls button {
+  min-width: 44px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+}
+.lb-controls .btn.secondary { background: transparent; border: 1px solid rgba(255,255,255,0.12); color: #fff; }
+.lb-controls .btn { background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.06); }
+
+/* Lightbox styles */
+#lightbox { display: none; align-items: center; justify-content: center; }
+#lightboxImg { transition: transform .2s ease; cursor: zoom-out; }
+
+/* Prevent image click from selecting text while zooming */
+#lightboxImg, #lightboxCloseBtn { user-select: none; -webkit-user-drag: none; }
 
 
 
@@ -644,6 +708,20 @@
   <!-- <footer>Prototype UI — LandAgent · Frontend only (HTML, CSS, JS). Next: connect to backend/WordPress.</footer> -->
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+
+<!-- LIGHTBOX (place just before </body>) -->
+<div id="lightbox" style="display:none;position:fixed;inset:0;z-index:12000;
+     background:rgba(0,0,0,0.85);place-items:center;" onclick="closeLightbox()">
+  <div style="position:relative;max-width:95%;max-height:95%;display:grid;place-items:center;">
+    <button id="lightboxCloseBtn" onclick="event.stopPropagation(); closeLightbox()"
+            style="position:absolute;top:-18px;right:-18px;background:#fff;border-radius:50%;width:36px;height:36px;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.2);">
+      ×
+    </button>
+    <img id="lightboxImg" src="" alt="zoom" style="max-width:100%;max-height:100%;object-fit:contain;"/>
+  </div>
+</div>
+
+
 
   <script>
   
@@ -1134,6 +1212,7 @@ function viewProperty(id){
   if (firstImage) {
     mainImg.src = firstImage;
     mainImg.style.display = 'block';
+	mainImg.onclick = function() { openLightbox(this.src); };
     noImage.style.display = 'none';
   } else {
     mainImg.src = '';           // clear src to avoid broken icon
@@ -1157,7 +1236,11 @@ function viewProperty(id){
     const img = document.createElement('img');
     img.src = src;
     img.alt = '';
-    img.onclick = function() { setMainImage(this.src); };
+    img.onclick = function() {
+  setMainImage(this.src);
+  openLightbox(this.src);
+};
+
     img.onerror = function() {
       // hide broken thumb image and show a simple label instead
       const fallback = document.createElement('div');
@@ -1172,7 +1255,7 @@ function viewProperty(id){
       d.appendChild(fallback);
     };
     d.appendChild(img);
-
+    makeViewImageClickable(img);
     thumbs.appendChild(d);
   });
 
@@ -1207,6 +1290,15 @@ function viewProperty(id){
 
   document.getElementById('viewBackdrop').style.display = 'grid';
 }
+function makeViewImageClickable(imgEl){
+  if(!imgEl) return;
+  imgEl.style.cursor = 'zoom-in';
+  imgEl.addEventListener('click', function(ev){
+    ev.stopPropagation();
+    openLightbox(this.src, ev);
+  });
+}
+
 
 function setMainImage(src){
   const mainImg = document.getElementById('viewMainImage');
@@ -1219,14 +1311,27 @@ function setMainImage(src){
   }
   mainImg.src = src;
   mainImg.style.display = 'block';
+
   noImage.style.display = 'none';
   mainImg.onerror = function() {
     mainImg.style.display = 'none';
     noImage.style.display = 'grid';
   };
+  mainImg.onclick = function() { if (this.src) openLightbox(this.src); };
 }
 
-function closeViewModal(e){ if(e && e.target && e.target.id!=='viewBackdrop') return; document.getElementById('viewBackdrop').style.display='none'; currentViewIndex=null }
+function closeViewModal(e){
+  // only act when backdrop or no event passed (keeps existing behavior)
+  if (e && e.target && e.target.id !== 'viewBackdrop') return;
+
+  // hide the view modal
+  document.getElementById('viewBackdrop').style.display = 'none';
+  currentViewIndex = null;
+
+  // also close the lightbox (safe guard if function not defined)
+  if (typeof closeLightbox === 'function') closeLightbox();
+}
+
 
 function openEditModal(id){
   // reset uploadedImages + uploadedFiles each time modal opens
@@ -1595,6 +1700,108 @@ function exportPropertyPDF(id) {
   }, 300);
 }
 
+/* ===== Lightbox + zoom/pan logic ===== */
+let _lbScale = 1;
+let _lbTx = 0;
+let _lbTy = 0;
+let _isDragging = false;
+let _startX = 0;
+let _startY = 0;
+
+function updateLightboxTransform() {
+  const img = document.getElementById('lightboxImg');
+  if (!img) return;
+  img.style.transform = `translate(${_lbTx}px, ${_lbTy}px) scale(${_lbScale})`;
+}
+
+// --- Lightbox open/close helpers ---
+let isLightboxOpen = false;
+
+function openLightbox(src) {
+  if (!src) return;
+  const lb = document.getElementById('lightbox');
+  const img = document.getElementById('lightboxImg');
+  img.src = src;
+  lb.style.display = 'grid';
+  isLightboxOpen = true;
+
+  // optional: prevent background scrolling while open
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+  const lb = document.getElementById('lightbox');
+  const img = document.getElementById('lightboxImg');
+  lb.style.display = 'none';
+  img.src = '';
+  isLightboxOpen = false;
+  document.body.style.overflow = ''; // restore
+}
+
+// allow click on the main image to open lightbox too
+document.getElementById('viewMainImage').addEventListener('click', function(e){
+  if (this.src) openLightbox(this.src);
+});
+
+// Replace thumbnail click handlers where thumbnails are created (see next step)
+
+
+function zoomIn(e){ if(e) e.stopPropagation(); _lbScale = Math.min(5, _lbScale + 0.25); updateLightboxTransform(); }
+function zoomOut(e){ if(e) e.stopPropagation(); _lbScale = Math.max(0.25, _lbScale - 0.25); updateLightboxTransform(); }
+function resetZoom(e){ if(e) e.stopPropagation(); _lbScale = 1; _lbTx = 0; _lbTy = 0; updateLightboxTransform(); }
+
+/* attach wheel and pointer drag events */
+(function attachLightboxEvents(){
+  const lb = document.getElementById('lightbox');
+  const img = document.getElementById('lightboxImg');
+  if (!lb || !img) return;
+
+  lb.addEventListener('wheel', function(ev){
+    if (lb.style.display === 'none') return;
+    ev.preventDefault();
+    const delta = -ev.deltaY;
+    _lbScale += delta > 0 ? 0.1 : -0.1;
+    _lbScale = Math.min(5, Math.max(0.25, _lbScale));
+    updateLightboxTransform();
+  }, { passive: false });
+
+  img.addEventListener('pointerdown', function(ev){
+    ev.preventDefault();
+    _isDragging = true;
+    _startX = ev.clientX;
+    _startY = ev.clientY;
+    try { img.setPointerCapture(ev.pointerId); } catch(e){}
+    img.style.cursor = 'grabbing';
+  });
+
+  img.addEventListener('pointermove', function(ev){
+    if (!_isDragging) return;
+    ev.preventDefault();
+    const dx = ev.clientX - _startX;
+    const dy = ev.clientY - _startY;
+    _startX = ev.clientX;
+    _startY = ev.clientY;
+    _lbTx += dx;
+    _lbTy += dy;
+    updateLightboxTransform();
+  });
+
+  img.addEventListener('pointerup', function(ev){
+    _isDragging = false;
+    try { img.releasePointerCapture(ev.pointerId); } catch(e){}
+    img.style.cursor = 'grab';
+  });
+  img.addEventListener('pointercancel', function(){
+    _isDragging = false;
+    img.style.cursor = 'grab';
+  });
+
+  img.addEventListener('dblclick', function(ev){
+    ev.preventDefault();
+    resetZoom();
+  });
+})();
+
 
     // load saved data (if any) then render
 // Load from IndexedDB first, then render
@@ -1612,12 +1819,18 @@ window.addEventListener('resize', () => {
 });
 
 
-    // keyboard shortcuts (optional quality-of-life)
-    document.addEventListener('keydown', e=>{
-      if(e.key==='Escape'){
-        closeEditModal(); closeViewModal();
-      }
-    });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    // Only close the lightbox on Escape. Don't close modals here.
+    if (isLightboxOpen) {
+      closeLightbox();
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }
+});
+
+
 
     // also save on unload to be safe
     window.addEventListener('beforeunload', ()=> {

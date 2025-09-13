@@ -1,6 +1,8 @@
 <!doctype html>
 <html lang="en">
 <head>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Land_Property_Manager</title>
@@ -852,6 +854,159 @@ function openDB() {
   });
 }
 
+
+
+
+// ----------------- Google Drive storage helpers (drop into your existing <script>) -----------------
+const GCLIENT_ID = '975325956239-vp6gmgvssnujmtdigbk5lhs0dhnos2tj.apps.googleusercontent.com';
+const DRIVE_JSON_NAME = 'landagent_data.json'; // file name stored in appDataFolder
+const SCOPES = 'https://www.googleapis.com/auth/drive.appdata'; // appDataFolder scope
+
+let tokenClient;
+let accessToken = null;
+let tokenExpiry = 0; // ms epoch
+
+function initGoogleAuth() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GCLIENT_ID,
+    scope: SCOPES,
+    callback: (resp) => {
+      if (resp.error) {
+        console.error('Token error', resp);
+        return;
+      }
+      accessToken = resp.access_token;
+      // token response doesn't give expiry reliably here; set a short window
+      tokenExpiry = Date.now() + (60 * 60 * 1000); // assume 1 hour
+      // once we have token, load drive JSON
+      loadFromDriveJSON().then(() => {
+        render();
+      }).catch(err => console.warn('Drive load failed:', err));
+    }
+  });
+}
+
+// request an access token (prompts consent first time)
+async function requestAccessToken() {
+  if (!tokenClient) initGoogleAuth();
+  if (accessToken && Date.now() < tokenExpiry) return accessToken;
+  return new Promise((res, rej) => {
+    tokenClient.requestAccessToken({ prompt: '' /* use 'consent' to force re-consent */ });
+    // the tokenClient callback above will set accessToken; we poll briefly
+    const wait = setInterval(() => {
+      if (accessToken) {
+        clearInterval(wait);
+        res(accessToken);
+      }
+    }, 200);
+    setTimeout(() => {
+      clearInterval(wait);
+      if (!accessToken) rej(new Error('Timed out waiting for token'));
+    }, 10000);
+  });
+}
+
+// ---------- Drive API helpers (appDataFolder) ----------
+
+// helper: find file id of a file name in appDataFolder
+async function findAppDataFileId(fileName) {
+  const token = await requestAccessToken();
+  const q = encodeURIComponent(`name = '${fileName}'`);
+  const url = `https://www.googleapis.com/drive/v3/files?q=${q}&spaces=appDataFolder&fields=files(id,name)`;
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  if (!r.ok) throw new Error('Drive list failed: ' + await r.text());
+  const data = await r.json();
+  return (data.files && data.files[0]) ? data.files[0].id : null;
+}
+
+// create or update JSON file in appDataFolder
+async function uploadAppDataJson(fileName, jsonString) {
+  const token = await requestAccessToken();
+  const existingId = await findAppDataFileId(fileName);
+
+  const metadata = {
+    name: fileName,
+    parents: ['appDataFolder']
+  };
+
+  // multipart/related body
+  const boundary = '-------314159265358979323846';
+  const delimiter = "\r\n--" + boundary + "\r\n";
+  const close_delim = "\r\n--" + boundary + "--";
+
+  const part1 = 'Content-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(metadata);
+  const part2 = 'Content-Type: application/json\r\n\r\n' + jsonString;
+
+  const body = delimiter + part1 + delimiter + part2 + close_delim;
+
+  const method = existingId ? 'PATCH' : 'POST';
+  const url = existingId
+    ? `https://www.googleapis.com/upload/drive/v3/files/${existingId}?uploadType=multipart&fields=id`
+    : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id`;
+
+  const res = await fetch(url, {
+    method,
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'multipart/related; boundary=' + boundary
+    },
+    body
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error('Drive upload failed: ' + text);
+  }
+  return res.json();
+}
+
+// download JSON from appDataFolder
+async function downloadAppDataJson(fileName) {
+  const token = await requestAccessToken();
+  const fileId = await findAppDataFileId(fileName);
+  if (!fileId) return null;
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  if (!r.ok) throw new Error('Drive download failed: ' + await r.text());
+  return r.text(); // JSON string
+}
+
+// convenience: upload everything (properties + profile)
+async function saveAllToDrive() {
+  const payload = { properties, profile: { ...agentProfile } || {} };
+  const json = JSON.stringify(payload);
+  return uploadAppDataJson(DRIVE_JSON_NAME, json);
+}
+
+async function loadAllFromDrive() {
+  try {
+    const txt = await downloadAppDataJson(DRIVE_JSON_NAME);
+    if (!txt) return false;
+    const obj = JSON.parse(txt);
+    if (Array.isArray(obj.properties)) properties = obj.properties;
+    if (obj.profile) {
+      // merge profile into agentProfile and update UI
+      await saveProfile(obj.profile); // optionally persist profile locally if you want
+      updateUIWithProfile(obj.profile);
+    }
+    return true;
+  } catch (err) {
+    console.warn('loadAllFromDrive error', err);
+    return false;
+  }
+}
+
+// Public helper to call when user clicks "Sign in with Google" or to auto-request
+function signInAndLoadDriveData() {
+  requestAccessToken().catch(e => console.warn(e));
+}
+
+// ----------------- end Drive helpers -----------------
+
+
+
+
+
+
 function updateUIWithProfile(profile) {
   if (!profile) return;
   agentProfile.name = profile.name || agentProfile.name;
@@ -959,36 +1114,30 @@ async function saveProfileFromModal() {
 
 // Save all properties (overwrite)
 async function savePropertiesToStorage() {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('properties', 'readwrite');
-    const store = tx.objectStore('properties');
-    store.clear();
-    properties.forEach(p => store.put(p));
-    tx.oncomplete = () => resolve();
-    tx.onerror = e => reject(e.target.error);
-  });
+  try {
+    await saveAllToDrive();
+    console.log('Saved to Drive');
+  } catch (err) {
+    console.error('Save to Drive failed, fallback to IndexedDB (optional):', err);
+    // Optionally fall back to IndexedDB by keeping your old function if you want offline fallback.
+  }
 }
+
 
 
 // Load all properties
 async function loadPropertiesFromStorage() {
-  const db = await openDB();
-  const tx = db.transaction('properties', 'readonly');
-  const store = tx.objectStore('properties');
-  const request = store.getAll();
-
-  return new Promise((resolve, reject) => {
-    request.onsuccess = e => {
-      const result = e.target.result;
-      if (Array.isArray(result) && result.length) {
-        properties = result;
-      }
-      resolve();
-    };
-    request.onerror = e => reject(e.target.error);
-  });
+  try {
+    const ok = await loadAllFromDrive();
+    if (!ok) {
+      console.log('No Drive JSON found; starting fresh.');
+    }
+  } catch (err) {
+    console.warn('Loading from Drive failed:', err);
+    // Optionally fallback to IndexedDB load here to support offline.
+  }
 }
+
 
 async function clearAllData() {
   if (!confirm("This will delete all properties. Continue?")) return;

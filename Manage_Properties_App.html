@@ -298,7 +298,7 @@
 		position: fixed;
 		top: 0;
 		left: 0;
-		height: 100vh;
+		height: 100dvh;
 		z-index: 200;
 		transform: translateX(-100%); /* hidden by default */
 	  }
@@ -784,9 +784,28 @@
   </div>
 
 
-  <!-- <footer>Prototype UI — LandAgent · Frontend only (HTML, CSS, JS). Next: connect to backend/WordPress.</footer> -->
+<!-- <footer>Prototype UI — LandAgent · Frontend only (HTML, CSS, JS). Next: connect to backend/WordPress.</footer> -->
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+	<!-- add this in <head> or before your main script -->
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+	<script>
+	  // Replace with your project url & anon key or use environment replacement (see step 4).
+	  // For quick local testing you can paste them here.
+	  const SUPABASE_URL = "https://mxuknvleveqqybhbhwnv.supabase.co";   // from Supabase Project Settings -> API
+	  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14dWtudmxldmVxcXliaGJod252Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3NTM4MTcsImV4cCI6MjA3MzMyOTgxN30.UejlJa5Q4QUmVT8yJGVfISZrnjHNfEyhkszOA5WOJh8";             // from Project Settings -> API
+
+	  // create client
+	  const supabase = supabaseLib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+	  // helper: check auth state (optional)
+	  supabase.auth.onAuthStateChange((event, session) => {
+		// event 'SIGNED_IN' / 'SIGNED_OUT'
+		// you can call a function to update UI on sign in/out
+		console.log("auth event", event, session);
+	  });
+	</script>
+
 
 <!-- Lightbox for zoom/pan of clicked images -->
 <div id="lightbox" class="lightbox" style="display:none;" onclick="closeLightbox(event)">

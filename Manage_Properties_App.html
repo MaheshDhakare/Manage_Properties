@@ -569,6 +569,12 @@
 		</div>
 		<!-- <button class="btn danger" style="width:100%;margin-top:8px" onclick="clearAllData()">🗑 Clear All Data</button> -->
       </nav>
+	  
+<!-- after your Export Backup button -->
+<button id="gdriveSignInBtn" class="btn secondary" style="width:100%;margin-top:8px">
+  <i class="fa-brands fa-google"></i> Sign in & Load from Google Drive
+</button>
+
 
 	<div class="filter-group">
 	  <label>Filter by Type</label>
@@ -885,6 +891,17 @@ function initGoogleAuth() {
     }
   });
 }
+
+// wire the Sign-in button (place after initGoogleAuth / tokenClient are defined)
+const gdriveBtn = document.getElementById('gdriveSignInBtn');
+if (gdriveBtn) {
+  gdriveBtn.addEventListener('click', () => {
+    if (!tokenClient) initGoogleAuth();
+    // ask for consent & trigger the tokenClient callback which will load Drive data
+    tokenClient.requestAccessToken({ prompt: 'consent' });
+  });
+}
+
 
 // request an access token (prompts consent first time)
 async function requestAccessToken() {
